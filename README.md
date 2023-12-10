@@ -3,16 +3,19 @@
 ## Setup
 
 ```
-sudo apt install python3-pip
-python3 -m pip install --upgrade pip
-sudo apt-get install python3-venv
+sudo apt install python-pip
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt-get update
+sudo apt-get install python3.7
+sudo apt-get install python3.7-dev
+sudo apt-get install python3.7-venv
 ```
 
 
 ```
-python3 -m venv venv
+python3.7 -m venv venv
 source venv/bin/activate
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 

@@ -2,3 +2,4 @@ numpy
 matplotlib
 opencv-python
 open3d-cpu
+nuscenes-devkit
