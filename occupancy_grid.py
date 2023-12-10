@@ -1,4 +1,5 @@
 import math
+from pprint import pprint
 
 import numpy as np
 import cv2
@@ -8,15 +9,22 @@ from pointcloud_tools import read_pcd_file, read_bin_file, compute_length_and_de
 class OccupancyGrid:
     def __init__(self, shape: tuple=(640, 640, 3)) -> None:
         self.angle_resolution = 15
+        self.center = (shape[0]//2, shape[1]//2)
+
+        # Bin for angles
+        # self.angles = np.arange(start=0, stop=361, step=self.angle_resolution, dtype=np.int32)
+        self.angles = [x for x in range(0, 361, self.angle_resolution)]
+
         self.init_birds_eye_view(shape)
 
     def init_birds_eye_view(self, shape: tuple):
-        self.center = (shape[0]//2, shape[1]//2)
         img = np.zeros(shape, dtype=np.uint8)
         
         center = 12
         cell_wide = 16
-        self.circles = []
+
+        # Bin for distance to center
+        self.circles = [center]
 
         radius = center + cell_wide
         while radius < min(shape[:2]) // 2:
@@ -67,34 +75,39 @@ class OccupancyGrid:
             cv2.circle(bev, pt, radius=2, color=(255, 0, 0), thickness=-1)
         return bev
 
-
     def count_points_per_cell(self, pcd: np.ndarray) -> np.ndarray:
-        # Bin for angles
-        angles = np.arange(start=0, stop=361, step=self.angle_resolution, dtype=np.int32)
-
         vector_lengths, pcd_angles = compute_length_and_degree(pcd)
     
-        angle_bins = np.digitize(pcd_angles, angles)
+        angle_bins = np.digitize(pcd_angles, self.angles)
         radius_bins = np.digitize(vector_lengths, self.circles)
 
-        print(angle_bins)
-        print(radius_bins)
+        # Filter points that are within the ego center
+        angle_bins = angle_bins[np.where(radius_bins > 0)]
+        radius_bins = radius_bins[np.where(radius_bins > 0)]
 
+        occupancy_cells = np.zeros((len(self.circles), len(self.angles)))
+        for radius_bin, angle_bin in zip(radius_bins, angle_bins):
+            occupancy_cells[radius_bin, angle_bin] += 1
+        return occupancy_cells
 
     def draw_occupancy_in_birds_eye_view(self, pcd: np.ndarray) -> np.ndarray:
-        pcd = pcd.astype(np.int32)[:, :2]
-        pcd = np.add(pcd, self.center)
         bev = self.img.copy()
-        for pt in pcd:
-            cv2.circle(bev, pt, radius=2, color=(255, 0, 0), thickness=-1)
+        occupancy_cells = self.count_points_per_cell(pcd)
+
+        for i, row in enumerate(occupancy_cells.tolist()):
+            for j, cell in enumerate(row):
+                if cell > 1:
+                    length = (self.circles[i-1] + self.circles[i]) / 2
+                    angle = (self.angles[j-1] + self.angles[j])
+
+                    
+                    x = int(self.center[0]) # 
+                    y = int(self.center[1]) # 
+                    cv2.circle(bev, (x, y), radius=4, color=(255, 0, 0), thickness=-1)
         return bev
 
 def main():
     grid = OccupancyGrid(shape=(640, 640, 3))
-    # grid.test_point_cloud()
-    # grid.viz_birds_eye_view()
-    # path = "data/v1.0-mini/samples/RADAR_BACK_LEFT/n008-2018-08-01-15-16-36-0400__RADAR_BACK_LEFT__1533151603522238.pcd"
-    # grid.viz_pointcloud_in_birds_eye_view(path=path)
 
     path = "data/v1.0-mini/samples/RADAR_FRONT/n008-2018-08-01-15-16-36-0400__RADAR_FRONT__1533151603555991.pcd"
     grid.viz_pointcloud_in_birds_eye_view(path=path)
