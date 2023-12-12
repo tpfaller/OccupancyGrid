@@ -19,4 +19,11 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## Instructions
+## Dataset
+The nuScenes dataset is a public large-scale dataset for autonomous driving that contains 1,000 scenes. The full dataset includes approximately 1.4M camera images, 390k LIDAR sweeps, 1.4M RADAR sweeps and 1.4M object bounding boxes in 40k keyframes.
+![plot](examples/NuScene_simplified_schema.jpg)
+![plot](examples/sensor_overview.png)
+
+## OccupancyGrid
+
+![plot](examples/occupancy_grid.png)

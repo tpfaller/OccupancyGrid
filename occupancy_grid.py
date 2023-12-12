@@ -108,6 +108,7 @@ class OccupancyGrid:
 
 def main():
     grid = OccupancyGrid(shape=(640, 640, 3))
+    grid.viz_birds_eye_view()
 
     path = "data/v1.0-mini/samples/RADAR_FRONT/n008-2018-08-01-15-16-36-0400__RADAR_FRONT__1533151603555991.pcd"
     grid.viz_pointcloud_in_birds_eye_view(path=path)

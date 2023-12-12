@@ -12,22 +12,6 @@ from pointcloud_tools import read_bin_file, read_pcd_file
 from occupancy_grid import OccupancyGrid
 
 
-def test_video():
-    black = np.zeros((640, 640, 3), dtype=np.uint8)
-    contrast = np.concatenate(
-        [
-            np.zeros((320, 640, 3), dtype=np.uint8), 
-            np.ones((320, 640, 3), dtype=np.uint8) * 10
-        ],
-        axis=0
-        )
-    
-    for i in range(20): 
-        black += contrast
-        cv2.imshow("test", black)
-        cv2.waitKey(100)
-    cv2.destroyAllWindows()
-
 def nu_camera_video():
     data_path = "data/v1.0-mini"
 
@@ -53,7 +37,7 @@ def nu_camera_video():
     cv2.destroyAllWindows()
 
 def stream_scene():
-    sensors = ["CAM_FRONT", "RADAR_FRONT"] # "LIDAR_TOP"] # , "RADAR_FRONT"]
+    sensors = ["CAM_FRONT", "RADAR_FRONT", "LIDAR_TOP"] # , "RADAR_FRONT"]
 
     # Get scene and first sample
     data_path = "data/v1.0-mini"
@@ -96,7 +80,7 @@ def stream_scene():
                 pcd = read_pcd_file(file_path)
                 pcd *= 3
                 frames.append(occupancy_grid.draw_pointcloud_in_birds_eye_view(pcd=pcd))
-                print(f"Minimum : {np.min(pcd):4.2f}\tMaximum : {np.max(pcd):.2f}")
+                # print(f"Minimum : {np.min(pcd):4.2f}\tMaximum : {np.max(pcd):.2f}")
             else:
                 image = cv2.imread(file_path)
                 
@@ -108,7 +92,7 @@ def stream_scene():
         cv2.namedWindow("All sensors", cv2.WINDOW_NORMAL) 
         cv2.resizeWindow("All sensors", 1280, 640) 
         cv2.imshow("All sensors", data_stream)
-        cv2.waitKey(0)
+        cv2.waitKey(500)
             
         # Get the next sample
         my_sample = nusc.get('sample', my_sample["next"])
