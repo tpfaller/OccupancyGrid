@@ -54,12 +54,29 @@ class OccupancyGrid:
     def viz_pointcloud_in_birds_eye_view(self, path):
         if path[-3:] == "bin":
             pcd = read_bin_file(path)
+            pcd *= 3
         else:
             pcd = read_pcd_file(path)
+            pcd *= 3
         
         bev = self.draw_pointcloud_in_birds_eye_view(pcd)
-        self.count_points_per_cell(pcd)
+        # self.count_points_per_cell(pcd)
 
+        cv2.imshow("Birdseye_View", bev)
+        cv2.waitKey(0) 
+        cv2.destroyAllWindows()
+
+    def viz_occupancy_grid_in_birds_eye_view(self, path):
+        if path[-3:] == "bin":
+            pcd = read_bin_file(path)[:, :3]
+            print(pcd.shape)
+            pcd *= 3
+        else:
+            pcd = read_pcd_file(path)
+            print(pcd.shape)
+            pcd *= 3
+        
+        bev = self.draw_occupancy_in_birds_eye_view(pcd)
         cv2.imshow("Birdseye_View", bev)
         cv2.waitKey(0) 
         cv2.destroyAllWindows()
@@ -78,12 +95,16 @@ class OccupancyGrid:
     def count_points_per_cell(self, pcd: np.ndarray) -> np.ndarray:
         vector_lengths, pcd_angles = compute_length_and_degree(pcd)
     
-        angle_bins = np.digitize(pcd_angles, self.angles)
+        angle_bins = np.digitize(pcd_angles, self.angles, right=False)
         radius_bins = np.digitize(vector_lengths, self.circles)
+
 
         # Filter points that are within the ego center
         angle_bins = angle_bins[np.where(radius_bins > 0)]
         radius_bins = radius_bins[np.where(radius_bins > 0)]
+
+        # Filter points outside of the grid
+        radius_bins = radius_bins[np.where(radius_bins < len(self.circles))]
 
         occupancy_cells = np.zeros((len(self.circles), len(self.angles)))
         for radius_bin, angle_bin in zip(radius_bins, angle_bins):
@@ -98,11 +119,11 @@ class OccupancyGrid:
             for j, cell in enumerate(row):
                 if cell > 1:
                     length = (self.circles[i-1] + self.circles[i]) / 2
-                    angle = (self.angles[j-1] + self.angles[j])
+                    angle = (self.angles[j-1] + self.angles[j]) / 2
 
                     
-                    x = int(self.center[0]) # 
-                    y = int(self.center[1]) # 
+                    x = int(self.center[0] + length * math.cos(math.radians(angle))) 
+                    y = int(self.center[1] + length * math.sin(math.radians(angle))) # 
                     cv2.circle(bev, (x, y), radius=4, color=(255, 0, 0), thickness=-1)
         return bev
 
@@ -112,9 +133,11 @@ def main():
 
     path = "data/v1.0-mini/samples/RADAR_FRONT/n008-2018-08-01-15-16-36-0400__RADAR_FRONT__1533151603555991.pcd"
     grid.viz_pointcloud_in_birds_eye_view(path=path)
+    grid.viz_occupancy_grid_in_birds_eye_view(path=path)
 
-    # path = "data/v1.0-mini/samples/LIDAR_TOP/n008-2018-08-01-15-16-36-0400__LIDAR_TOP__1533151603547590.pcd.bin"
-    # grid.viz_pointcloud_in_birds_eye_view(path=path)
+    path = "data/v1.0-mini/samples/LIDAR_TOP/n008-2018-08-01-15-16-36-0400__LIDAR_TOP__1533151603547590.pcd.bin"
+    grid.viz_pointcloud_in_birds_eye_view(path=path)
+    grid.viz_occupancy_grid_in_birds_eye_view(path=path)
 
     
 if __name__ == '__main__':
