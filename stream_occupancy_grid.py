@@ -8,6 +8,7 @@ from nuscenes.nuscenes import NuScenes
 
 from pointcloud_tools import get_calibrated_pointcloud, filter_pointcloud
 from visualization import show_image, concatenate_all_images, draw_raw_pointcloud
+from dempster_shafer import dempster_shafer_theory
 
 
 def get_args() -> argparse.Namespace:
@@ -111,11 +112,18 @@ def main() -> None:
             lidar_map = get_lidar_map(sensor_data, resolution=args.resolution)
             radar_map = get_radar_map(sensor_data, resolution=args.resolution)
             # dempster shafer theory
+            occupancy_probability = dempster_shafer_theory(
+                 lidar_grid=lidar_map,
+                 radar_grid=radar_map,
+                 m1_theta=.5,
+                 m2_theta=.7
+            )
+            probs = cv2.cvtColor(occupancy_probability, cv2.COLOR_GRAY2RGB)
+            images.append(probs.astype(np.uint8))
             # edge detection
-
-            # gray = cv2.cvtColor(square_grid, cv2.COLOR_BGR2GRAY)
-            # laplacian = cv2.Laplacian(gray,cv2.CV_64F)
-            # images.append(laplacian)
+            laplacian = cv2.Laplacian(occupancy_probability,cv2.CV_32F)
+            laplacian = cv2.cvtColor(laplacian, cv2.COLOR_GRAY2RGB)
+            images.append(laplacian.astype(np.uint8))
 
         if args.round_grid:
             round_grid = None
