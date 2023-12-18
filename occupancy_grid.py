@@ -98,7 +98,6 @@ class OccupancyGrid:
         angle_bins = np.digitize(pcd_angles, self.angles, right=False)
         radius_bins = np.digitize(vector_lengths, self.circles)
 
-
         # Filter points that are within the ego center
         angle_bins = angle_bins[np.where(radius_bins > 0)]
         radius_bins = radius_bins[np.where(radius_bins > 0)]
@@ -129,15 +128,15 @@ class OccupancyGrid:
 
 def main():
     grid = OccupancyGrid(shape=(640, 640, 3))
-    grid.viz_birds_eye_view()
+    # grid.viz_birds_eye_view()
 
     path = "data/v1.0-mini/samples/RADAR_FRONT/n008-2018-08-01-15-16-36-0400__RADAR_FRONT__1533151603555991.pcd"
     grid.viz_pointcloud_in_birds_eye_view(path=path)
     grid.viz_occupancy_grid_in_birds_eye_view(path=path)
 
     path = "data/v1.0-mini/samples/LIDAR_TOP/n008-2018-08-01-15-16-36-0400__LIDAR_TOP__1533151603547590.pcd.bin"
-    grid.viz_pointcloud_in_birds_eye_view(path=path)
-    grid.viz_occupancy_grid_in_birds_eye_view(path=path)
+    # grid.viz_pointcloud_in_birds_eye_view(path=path)
+    # grid.viz_occupancy_grid_in_birds_eye_view(path=path)
 
     
 if __name__ == '__main__':
