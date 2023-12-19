@@ -1,12 +1,13 @@
 import argparse
 import os
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 
 import cv2
 import numpy as np
 from nuscenes.nuscenes import NuScenes
 
 from pointcloud_tools import get_calibrated_pointcloud, filter_pointcloud
+from utils_occupancy_grid import get_rings, compute_length_and_degree, count_points_per_cell
 from visualization import show_image, concatenate_all_images, draw_raw_pointcloud
 from dempster_shafer import dempster_shafer_theory
 
@@ -48,7 +49,7 @@ def get_camera_image(camera_name: str, nusc: NuScenes, sample: dict, resolution:
     return cv2.resize(image, (resolution, resolution))
 
 
-def get_radar_map(sensor_data: dict, resolution: int) -> np.ndarray:
+def get_radar_map(sensor_data: Dict[str, np.ndarray], resolution: int) -> np.ndarray:
     pointcloud = np.empty((0, 2))
     for sensor, sensor_pcd in sensor_data.items():
         if "RADAR" in sensor:
@@ -64,8 +65,7 @@ def get_radar_map(sensor_data: dict, resolution: int) -> np.ndarray:
     return background
     
 
-
-def get_lidar_map(sensor_data: dict, resolution: int) -> np.ndarray:
+def get_lidar_map(sensor_data: Dict[str, np.ndarray], resolution: int) -> np.ndarray:
     pcd = sensor_data["LIDAR_TOP"]
 
     discret_pcd = np.round(pcd).astype(np.int32)
@@ -76,6 +76,42 @@ def get_lidar_map(sensor_data: dict, resolution: int) -> np.ndarray:
     for (x, y) in discret_pcd_centered:
             background[x, y] = 1.
     return background
+
+
+def init_round_grid(resolution: int) -> Tuple[np.ndarray, np.ndarray]:
+    angle_resolution = 2
+
+    rings = get_rings(last_ring=resolution//2, growth_rate=1.0)
+    angles = np.array([x for x in range(0, 360, angle_resolution)])
+    return rings, angles
+    
+
+def discretize_radar(sensor_data: Dict[str, np.ndarray], rings: np.ndarray, angles: np.ndarray) -> np.ndarray:
+    pointcloud = np.empty((0, 2), dtype=np.float32)
+    for sensor, sensor_pcd in sensor_data.items():
+        if "RADAR" in sensor:
+            pointcloud = np.vstack([pointcloud, sensor_pcd])
+    length, degree = compute_length_and_degree(pointcloud=pointcloud)
+    radar_map = count_points_per_cell(
+        vector_lengths=length,
+        pcd_angles=degree,
+        angles=angles,
+        circles=rings
+    )
+    return radar_map
+
+
+def discretize_lidar(sensor_data: Dict[str, np.ndarray], rings: np.ndarray, angles: np.ndarray) -> np.ndarray:
+    pointcloud = sensor_data["LIDAR_TOP"]
+    
+    length, degree = compute_length_and_degree(pointcloud=pointcloud)
+    radar_map = count_points_per_cell(
+        vector_lengths=length,
+        pcd_angles=degree,
+        angles=angles,
+        circles=rings
+    )
+    return radar_map
 
 
 def main() -> None: 
@@ -107,7 +143,6 @@ def main() -> None:
             raw_pointcloud_image = draw_raw_pointcloud(sensor_data=sensor_data, resolution=args.resolution)
             images.append(raw_pointcloud_image)
         if args.square_grid:
-            square_grid = None
             # discretize pointcloud into square grid
             lidar_map = get_lidar_map(sensor_data, resolution=args.resolution)
             radar_map = get_radar_map(sensor_data, resolution=args.resolution)
@@ -126,13 +161,33 @@ def main() -> None:
             images.append(laplacian.astype(np.uint8))
 
         if args.round_grid:
-            round_grid = None
-            # discretize pointcloud into square grid
+            rings, degrees = init_round_grid(resolution=args.resolution)
+            
+            radar_map = discretize_radar(sensor_data=sensor_data, rings=rings, angles=degrees)
+            # radar_map = cv2.cvtColor(radar_map.astype(np.float32) * 255, cv2.COLOR_GRAY2RGB)
+            # radar_map = cv2.resize(radar_map, (args.resolution, args.resolution), interpolation=cv2.INTER_NEAREST)
+            # images.append(radar_map.astype(np.uint8))
+
+            lidar_map = discretize_lidar(sensor_data=sensor_data, rings=rings, angles=degrees)
+            # lidar_map = cv2.cvtColor(lidar_map.astype(np.float32) * 255, cv2.COLOR_GRAY2RGB)
+            # lidar_map = cv2.resize(lidar_map, (args.resolution, args.resolution), interpolation=cv2.INTER_NEAREST)
+            # images.append(lidar_map.astype(np.uint8))
+
             # dempster shafer theory
+            occupancy_probability = dempster_shafer_theory(
+                 lidar_grid=lidar_map,
+                 radar_grid=radar_map,
+                 m1_theta=.5,
+                 m2_theta=.7
+            )
+            probs = cv2.cvtColor(occupancy_probability, cv2.COLOR_GRAY2RGB)
+            probs = cv2.resize(probs, (args.resolution, args.resolution), interpolation=cv2.INTER_NEAREST)
+            images.append(probs.astype(np.uint8))
             # edge detection
-            gray = cv2.cvtColor(round_grid, cv2.COLOR_BGR2GRAY)
-            laplacian = cv2.Laplacian(gray,cv2.CV_64F)
-            images.append(laplacian)
+            laplacian = cv2.Laplacian(occupancy_probability,cv2.CV_32F)
+            laplacian = cv2.cvtColor(laplacian, cv2.COLOR_GRAY2RGB)
+            laplacian = cv2.resize(laplacian, (args.resolution, args.resolution), interpolation=cv2.INTER_NEAREST)
+            images.append(laplacian.astype(np.uint8))
         
         # Get camera image
         camera_image = get_camera_image(
@@ -146,7 +201,7 @@ def main() -> None:
         # concatenate all images
         frame = concatenate_all_images(images=images)
         # show result
-        show_image(image=frame)
+        show_image(image=frame, time=0)
 
         # Get next sample
         sample = nusc.get('sample', sample["next"])
