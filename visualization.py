@@ -19,6 +19,8 @@ def draw_raw_pointcloud(sensor_data: dict, resolution: int) -> np.ndarray:
         discret_pcd_centered = discretize_and_center_pcd(pcd, center=resolution // 2, scaling_factor=1.0)
         for (x, y) in discret_pcd_centered:
             background[x, y, :] = color
+
+    cv2.circle(background, (resolution//2, resolution//2), 3,(0, 255, 0), -1)
     return background
 
 def concatenate_all_images(images: List[np.ndarray]) -> np.ndarray:

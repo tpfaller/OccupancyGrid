@@ -38,7 +38,7 @@ def get_calibrated_pointcloud(nusc: NuScenes, sample: dict, sensor_name: str) ->
         pointcloud = read_bin_file(os.path.join("data/v1.0-mini", sensor['filename']))
 
         # Filter by reflection
-        pointcloud = pointcloud[np.where((pointcloud[:, 3] > 5) & (pointcloud[:, 3] < 40))]
+        pointcloud = pointcloud[np.where((pointcloud[:, 3] > 1) & (pointcloud[:, 3] < 100))]
         # Discard reflection for projection
         pointcloud = pointcloud[:,:3]
 

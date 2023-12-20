@@ -9,7 +9,7 @@ from nuscenes.nuscenes import NuScenes
 from pointcloud_tools import get_calibrated_pointcloud, filter_pointcloud
 from utils_occupancy_grid import get_rings, compute_length_and_degree, count_points_per_cell
 from visualization import show_image, concatenate_all_images, draw_raw_pointcloud
-from dempster_shafer import dempster_shafer_theory
+from dempster_shafer import dempster_shafer_fusion
 
 
 def get_args() -> argparse.Namespace:
@@ -28,6 +28,15 @@ def get_args() -> argparse.Namespace:
     parser.add_argument("--max_height", type=float, default=None)
     parser.add_argument("--min_x", type=float, default=1.5)
     parser.add_argument("--min_y", type=float, default=1.0)
+
+    # Dempster-Shafer parameter
+    parser.add_argument("--lidar_occupied", type=float)
+    parser.add_argument("--lidar_unoccupied", type=float)
+    parser.add_argument("--lidar_unsure", type=float)
+    parser.add_argument("--radar_occupied", type=float)
+    parser.add_argument("--radar_unoccupied", type=float)
+    parser.add_argument("--radar_unsure", type=float)
+
 
     args = parser.parse_args()
 
@@ -119,7 +128,16 @@ def main() -> None:
     # Init Nuscene, Select Scene, get first sample
     nusc, sample = init_nuscene(data_path=args.data_path, scene_number=args.scene_number)
     sensor_list = ["LIDAR_TOP", "RADAR_FRONT", "RADAR_FRONT_LEFT", "RADAR_BACK_LEFT", "RADAR_BACK_RIGHT", "RADAR_FRONT_RIGHT"]
+    dempster_shafer_parameter = {
+        "lidar_occupied": args.lidar_occupied,
+        "lidar_unoccupied": args.lidar_unoccupied,
+        "lidar_unsure": args.lidar_unsure,
+        "radar_occupied": args.radar_occupied,
+        "radar_unoccupied": args.radar_unoccupied,
+        "radar_unsure": args.radar_unsure,
+    }
     
+
     while len(sample["next"]) > 0:
         images = []
         sensor_data = {}
@@ -142,19 +160,29 @@ def main() -> None:
         if args.viz_raw_pointcloud:
             raw_pointcloud_image = draw_raw_pointcloud(sensor_data=sensor_data, resolution=args.resolution)
             images.append(raw_pointcloud_image)
+
         if args.square_grid:
             # discretize pointcloud into square grid
             lidar_map = get_lidar_map(sensor_data, resolution=args.resolution)
             radar_map = get_radar_map(sensor_data, resolution=args.resolution)
             # dempster shafer theory
-            occupancy_probability = dempster_shafer_theory(
-                 lidar_grid=lidar_map,
-                 radar_grid=radar_map,
-                 m1_theta=.5,
-                 m2_theta=.7
+            occupancy_probability = dempster_shafer_fusion(
+                lidar_grid=lidar_map,
+                radar_grid=radar_map,
+                weights=dempster_shafer_parameter
             )
-            probs = cv2.cvtColor(occupancy_probability, cv2.COLOR_GRAY2RGB)
-            images.append(probs.astype(np.uint8))
+
+            occupancy_color_coded = np.expand_dims(occupancy_probability * 255, axis=-1)
+            occupancy_color_coded = np.concatenate([
+                np.zeros_like(occupancy_color_coded),
+                occupancy_color_coded,
+                np.zeros_like(occupancy_color_coded)
+            ], axis=-1).astype(np.uint8)
+
+            cv2.circle(occupancy_color_coded, (args.resolution//2, args.resolution//2), 3,(255, 0, 0), -1)
+            images.append(occupancy_color_coded)
+            
+
             # edge detection
             laplacian = cv2.Laplacian(occupancy_probability,cv2.CV_32F)
             laplacian = cv2.cvtColor(laplacian, cv2.COLOR_GRAY2RGB)
@@ -164,30 +192,32 @@ def main() -> None:
             rings, degrees = init_round_grid(resolution=args.resolution)
             
             radar_map = discretize_radar(sensor_data=sensor_data, rings=rings, angles=degrees)
-            # radar_map = cv2.cvtColor(radar_map.astype(np.float32) * 255, cv2.COLOR_GRAY2RGB)
-            # radar_map = cv2.resize(radar_map, (args.resolution, args.resolution), interpolation=cv2.INTER_NEAREST)
-            # images.append(radar_map.astype(np.uint8))
-
             lidar_map = discretize_lidar(sensor_data=sensor_data, rings=rings, angles=degrees)
-            # lidar_map = cv2.cvtColor(lidar_map.astype(np.float32) * 255, cv2.COLOR_GRAY2RGB)
-            # lidar_map = cv2.resize(lidar_map, (args.resolution, args.resolution), interpolation=cv2.INTER_NEAREST)
-            # images.append(lidar_map.astype(np.uint8))
 
             # dempster shafer theory
-            occupancy_probability = dempster_shafer_theory(
-                 lidar_grid=lidar_map,
-                 radar_grid=radar_map,
-                 m1_theta=.5,
-                 m2_theta=.7
+            occupancy_probability = dempster_shafer_fusion(
+                lidar_grid=lidar_map,
+                radar_grid=radar_map,
+                weights=dempster_shafer_parameter
             )
-            probs = cv2.cvtColor(occupancy_probability, cv2.COLOR_GRAY2RGB)
-            probs = cv2.resize(probs, (args.resolution, args.resolution), interpolation=cv2.INTER_NEAREST)
-            images.append(probs.astype(np.uint8))
+
+            occupancy_color_coded = np.expand_dims(occupancy_probability * 255, axis=-1)
+            occupancy_color_coded = np.concatenate([
+                np.zeros_like(occupancy_color_coded),
+                occupancy_color_coded,
+                np.zeros_like(occupancy_color_coded)
+            ], axis=-1).astype(np.uint8)
+
+            occupancy_color_coded = cv2.resize(occupancy_color_coded, (args.resolution, args.resolution), interpolation=cv2.INTER_NEAREST)
+
+            images.append(occupancy_color_coded)
+            
             # edge detection
             laplacian = cv2.Laplacian(occupancy_probability,cv2.CV_32F)
             laplacian = cv2.cvtColor(laplacian, cv2.COLOR_GRAY2RGB)
             laplacian = cv2.resize(laplacian, (args.resolution, args.resolution), interpolation=cv2.INTER_NEAREST)
             images.append(laplacian.astype(np.uint8))
+
         
         # Get camera image
         camera_image = get_camera_image(
