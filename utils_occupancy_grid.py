@@ -1,4 +1,5 @@
 from typing import Tuple
+import math
 
 import numpy as np
 
@@ -42,3 +43,29 @@ def count_points_per_cell(vector_lengths: np.ndarray, pcd_angles: np.ndarray, an
         for radius_bin, angle_bin in zip(radius_bins, angle_bins):
             occupancy_cells[radius_bin, angle_bin] += 1
         return occupancy_cells
+
+
+def polar_coordinates_to_cartesian_grid(polar_grid: np.ndarray, cartesian_resolution: int, angle_resolution):
+    cart_grid = np.zeros((cartesian_resolution, cartesian_resolution))
+
+    range_max = cartesian_resolution // 2 + 2
+
+    a, r = np.mgrid[0:int(360/angle_resolution),0:range_max]
+
+    print(a)
+    print(r)
+
+    x = (range_max + r * np.cos(a*(2*math.pi)/360.0)).astype(int)
+    y = (range_max + r * np.sin(a*(2*math.pi)/360.0)).astype(int)
+
+    print(x)
+    print(y)
+
+    print(polar_grid.shape)
+
+    #polar_grid = polar_grid.reshape(1, )
+
+    for i in range(0, int(360/angle_resolution)): 
+        cart_grid[y[i,:],x[i,:]] = polar_grid[:, i]
+    
+    return cart_grid

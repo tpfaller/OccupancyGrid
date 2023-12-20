@@ -7,7 +7,7 @@ import numpy as np
 from nuscenes.nuscenes import NuScenes
 
 from pointcloud_tools import get_calibrated_pointcloud, filter_pointcloud
-from utils_occupancy_grid import get_rings, compute_length_and_degree, count_points_per_cell
+from utils_occupancy_grid import get_rings, compute_length_and_degree, count_points_per_cell, polar_coordinates_to_cartesian_grid
 from visualization import show_image, concatenate_all_images, draw_raw_pointcloud
 from dempster_shafer import dempster_shafer_fusion
 
@@ -22,6 +22,11 @@ def get_args() -> argparse.Namespace:
 
     parser.add_argument("--camera_name", type=str, default="CAM_FRONT")
     parser.add_argument("--resolution", type=int, default=300)
+
+    # Round grid parameter
+    parser.add_argument("--angle_resolution", type=int, default=2)
+    parser.add_argument("--ring_width", type=float, default=1.0)
+    parser.add_argument("--growth_rate", type=float, default=1.0)
 
     # Pointcloud filter parameter
     parser.add_argument("--min_height", type=float, default=0.3)
@@ -87,10 +92,12 @@ def get_lidar_map(sensor_data: Dict[str, np.ndarray], resolution: int) -> np.nda
     return background
 
 
-def init_round_grid(resolution: int) -> Tuple[np.ndarray, np.ndarray]:
-    angle_resolution = 2
-
-    rings = get_rings(last_ring=resolution//2, growth_rate=1.0)
+def init_round_grid(cartesian_resolution: int, angle_resolution: int, ring_width, growth_rate: float) -> Tuple[np.ndarray, np.ndarray]:
+    rings = get_rings(
+        ego_center=0,
+        ring_width=ring_width,
+        growth_rate=growth_rate,
+        last_ring=cartesian_resolution//2)
     angles = np.array([x for x in range(0, 360, angle_resolution)])
     return rings, angles
     
@@ -121,6 +128,7 @@ def discretize_lidar(sensor_data: Dict[str, np.ndarray], rings: np.ndarray, angl
         circles=rings
     )
     return radar_map
+
 
 
 def main() -> None: 
@@ -189,7 +197,11 @@ def main() -> None:
             images.append(laplacian.astype(np.uint8))
 
         if args.round_grid:
-            rings, degrees = init_round_grid(resolution=args.resolution)
+            rings, degrees = init_round_grid(
+                cartesian_resolution=args.resolution,
+                angle_resolution=args.angle_resolution,
+                ring_width=args.ring_width, 
+                growth_rate=args.growth_rate)
             
             radar_map = discretize_radar(sensor_data=sensor_data, rings=rings, angles=degrees)
             lidar_map = discretize_lidar(sensor_data=sensor_data, rings=rings, angles=degrees)
@@ -200,6 +212,12 @@ def main() -> None:
                 radar_grid=radar_map,
                 weights=dempster_shafer_parameter
             )
+
+            occupancy_probability = polar_coordinates_to_cartesian_grid(
+                polar_grid=occupancy_probability, 
+                cartesian_resolution=args.resolution,
+                angle_resolution=args.angle_resolution
+                )
 
             occupancy_color_coded = np.expand_dims(occupancy_probability * 255, axis=-1)
             occupancy_color_coded = np.concatenate([
