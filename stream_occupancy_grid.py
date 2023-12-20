@@ -1,6 +1,6 @@
 import argparse
 import os
-from typing import Tuple, List, Dict
+from typing import Tuple, Dict
 
 import cv2
 import numpy as np
@@ -98,7 +98,7 @@ def init_round_grid(cartesian_resolution: int, angle_resolution: int, ring_width
         ring_width=ring_width,
         growth_rate=growth_rate,
         last_ring=cartesian_resolution//2)
-    angles = np.array([x for x in range(0, 360, angle_resolution)])
+    angles = np.array([x for x in range(-180, 180, angle_resolution)])
     return rings, angles
     
 
@@ -114,6 +114,7 @@ def discretize_radar(sensor_data: Dict[str, np.ndarray], rings: np.ndarray, angl
         angles=angles,
         circles=rings
     )
+    radar_map = np.select([radar_map > .0], [1.], default=0.)
     return radar_map
 
 
@@ -121,14 +122,15 @@ def discretize_lidar(sensor_data: Dict[str, np.ndarray], rings: np.ndarray, angl
     pointcloud = sensor_data["LIDAR_TOP"]
     
     length, degree = compute_length_and_degree(pointcloud=pointcloud)
-    radar_map = count_points_per_cell(
+    lidar_map = count_points_per_cell(
         vector_lengths=length,
         pcd_angles=degree,
         angles=angles,
         circles=rings
     )
-    return radar_map
 
+    lidar_map = np.select([lidar_map > .0], [1.], default=0.)
+    return lidar_map
 
 
 def main() -> None: 
@@ -145,7 +147,6 @@ def main() -> None:
         "radar_unsure": args.radar_unsure,
     }
     
-
     while len(sample["next"]) > 0:
         images = []
         sensor_data = {}
@@ -213,30 +214,45 @@ def main() -> None:
                 weights=dempster_shafer_parameter
             )
 
+
+            occupancy_probability *=255
+            occupancy_probability.astype(np.uint8)
             occupancy_probability = polar_coordinates_to_cartesian_grid(
                 polar_grid=occupancy_probability, 
                 cartesian_resolution=args.resolution,
-                angle_resolution=args.angle_resolution
+                rings=rings,
                 )
+            
+            lidar_map = polar_coordinates_to_cartesian_grid(
+                polar_grid=lidar_map, 
+                cartesian_resolution=args.resolution,
+                rings=rings,
+                )
+            
+            lidar_map = cv2.resize(lidar_map, (args.resolution, args.resolution), interpolation=cv2.INTER_NEAREST_EXACT)
+            lidar_map = lidar_map.T
+            lidar_map = cv2.cvtColor((lidar_map*255).astype(np.uint8), cv2.COLOR_GRAY2RGB)
+            cv2.circle(lidar_map, (args.resolution//2, args.resolution//2), 3, (255,0,0), -1)
+            images.append(lidar_map)
 
-            occupancy_color_coded = np.expand_dims(occupancy_probability * 255, axis=-1)
+            occupancy_probability = occupancy_probability.T.copy()
+            occupancy_color_coded = np.expand_dims(occupancy_probability, axis=-1)
             occupancy_color_coded = np.concatenate([
                 np.zeros_like(occupancy_color_coded),
                 occupancy_color_coded,
                 np.zeros_like(occupancy_color_coded)
             ], axis=-1).astype(np.uint8)
 
-            occupancy_color_coded = cv2.resize(occupancy_color_coded, (args.resolution, args.resolution), interpolation=cv2.INTER_NEAREST)
+            # edge detection
+            laplacian = cv2.Laplacian(occupancy_probability.astype(np.float32),cv2.CV_32F)
+            laplacian = cv2.cvtColor(laplacian, cv2.COLOR_GRAY2RGB).astype(np.uint8)
 
+            cv2.circle(occupancy_color_coded, (args.resolution//2, args.resolution//2), 3, (255,0,0), -1)
             images.append(occupancy_color_coded)
             
-            # edge detection
-            laplacian = cv2.Laplacian(occupancy_probability,cv2.CV_32F)
-            laplacian = cv2.cvtColor(laplacian, cv2.COLOR_GRAY2RGB)
-            laplacian = cv2.resize(laplacian, (args.resolution, args.resolution), interpolation=cv2.INTER_NEAREST)
-            images.append(laplacian.astype(np.uint8))
+            cv2.circle(laplacian, (args.resolution//2, args.resolution//2), 3, (255,0,0), -1)
+            images.append(laplacian)
 
-        
         # Get camera image
         camera_image = get_camera_image(
             camera_name=args.camera_name,

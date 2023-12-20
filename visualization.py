@@ -1,9 +1,8 @@
-from typing import List, Tuple
+from typing import List
 
 import numpy as np
 import cv2
 
-from nuscenes import NuScenes
 
 def discretize_and_center_pcd(pcd: np.ndarray, center: int, scaling_factor: float) -> np.ndarray:
     pcd *= scaling_factor
@@ -22,6 +21,7 @@ def draw_raw_pointcloud(sensor_data: dict, resolution: int) -> np.ndarray:
 
     cv2.circle(background, (resolution//2, resolution//2), 3,(0, 255, 0), -1)
     return background
+
 
 def concatenate_all_images(images: List[np.ndarray]) -> np.ndarray:
     return np.concatenate(images, axis=1)

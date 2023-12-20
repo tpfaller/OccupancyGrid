@@ -87,6 +87,9 @@ python stream_occupancy_grid.py \
 python stream_occupancy_grid.py \
 --scene_number 2 \
 --max_height 3.5 \
+--min_height 0.1 \
+--min_x 0.5 \
+--min_y 0.5 \
 --round_grid \
 --viz_raw_pointcloud \
 --lidar_occupied 0.5 \
@@ -95,5 +98,8 @@ python stream_occupancy_grid.py \
 --radar_occupied 0.5 \
 --radar_unoccupied 0.0 \
 --radar_unsure 0.5 \
---resolution 150
+--resolution 300 \
+--ring_width .25 \
+--growth_rate 1.0 \
+--angle_resolution 1
 ```

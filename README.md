@@ -27,3 +27,13 @@ The nuScenes dataset is a public large-scale dataset for autonomous driving that
 ## OccupancyGrid
 
 ![plot](examples/occupancy_grid.png)
+
+
+Critical Points
+
+* Lidar and Radar vary a lot in numbers and in things they detect
+* Warping polar maps into carthesian maps is a non trivial task
+* Solve overlapping pixels around center - Averaging
+* compute the coordinates for circular segments if polar coordinate cell is bigger than one pixel
+
+
