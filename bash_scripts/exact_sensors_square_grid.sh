@@ -9,4 +9,4 @@ python stream_occupancy_grid.py \
 --radar_occupied 1.0 \
 --radar_unoccupied 0.0 \
 --radar_unsure 0.0 \
---time 100
+--time 0

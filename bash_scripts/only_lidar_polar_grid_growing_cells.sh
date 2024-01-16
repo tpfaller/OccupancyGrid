@@ -1,6 +1,7 @@
 #!/bin/bash
 python stream_occupancy_grid.py \
 --scene_number 2 \
+--viz_raw_pointcloud \
 --round_grid \
 --angle_resolution 1 \
 --ring_width 1.0 \
@@ -11,4 +12,4 @@ python stream_occupancy_grid.py \
 --radar_occupied 0.0 \
 --radar_unoccupied 0.0 \
 --radar_unsure 1.0 \
---time 500
+--time 0
