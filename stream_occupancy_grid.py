@@ -42,7 +42,8 @@ def get_args() -> argparse.Namespace:
     parser.add_argument("--radar_unoccupied", type=float)
     parser.add_argument("--radar_unsure", type=float)
 
-
+    parser.add_argument("--time", type=int, default=0, 
+                        help="Time for one frame in milliseconds. 0 is wating for pressing arbitrary key.")
     args = parser.parse_args()
 
     args.max_height = args.max_height if args.max_height else np.inf
@@ -233,7 +234,7 @@ def main() -> None:
             lidar_map = lidar_map.T
             lidar_map = cv2.cvtColor((lidar_map*255).astype(np.uint8), cv2.COLOR_GRAY2RGB)
             cv2.circle(lidar_map, (args.resolution//2, args.resolution//2), 3, (255,0,0), -1)
-            images.append(lidar_map)
+            # images.append(lidar_map)
 
             occupancy_probability = occupancy_probability.T.copy()
             occupancy_color_coded = np.expand_dims(occupancy_probability, axis=-1)
@@ -265,7 +266,7 @@ def main() -> None:
         # concatenate all images
         frame = concatenate_all_images(images=images)
         # show result
-        show_image(image=frame, time=0)
+        show_image(image=frame, time=args.time)
 
         # Get next sample
         sample = nusc.get('sample', sample["next"])

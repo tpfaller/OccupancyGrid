@@ -29,10 +29,10 @@ def mass_function(cells: np.ndarray, weight_occupied: float, weight_unoccupied: 
     mass_values = {}
     mass_values["occupied"] = weight_occupied * cells
     mass_values["unoccupied"] = weight_unoccupied * cells
-    mass_values["uncertain"] = weight_unsure * cells
+    mass_values["uncertain"] = weight_unsure * np.ones_like(cells)
+    # mass_values["uncertain"] = weight_unsure * cells
     # return np.concatenate([occupied, unoccupied, unsure], axis=-1)
     return mass_values
-
 
 
 def combination_rule(mass_values_1: Dict[str,np.ndarray], mass_values_2: Dict[str,np.ndarray]) -> np.ndarray:

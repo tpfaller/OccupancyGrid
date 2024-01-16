@@ -1,0 +1,11 @@
+#!/bin/bash
+python stream_occupancy_grid.py \
+--scene_number 2 \
+--square_grid \
+--lidar_occupied 1.0 \
+--lidar_unoccupied 0.0 \
+--lidar_unsure 0.0 \
+--radar_occupied 0.0 \
+--radar_unoccupied 0.0 \
+--radar_unsure 1.0 \
+--time 100

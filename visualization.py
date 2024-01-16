@@ -29,6 +29,6 @@ def concatenate_all_images(images: List[np.ndarray]) -> np.ndarray:
 
 def show_image(image: np.ndarray, time: int=500) -> None:
     cv2.namedWindow("Stream occupancy grid", cv2.WINDOW_NORMAL) 
-    cv2.resizeWindow("Stream occupancy grid", 1280, 1280) 
+    cv2.resizeWindow("Stream occupancy grid", 1800, 600) 
     cv2.imshow("Stream occupancy grid", image)
     cv2.waitKey(time)
